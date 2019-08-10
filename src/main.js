@@ -6,7 +6,7 @@ const config = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: {y: 500}, // will affect our player sprite
+            gravity: {y: 300}, // will affect our player sprite
             debug: false // change if you need
         }
     },
@@ -21,6 +21,7 @@ const game = new Phaser.Game(config);
 
 let player;
 let cursors;
+let spacebar;
 let controls;
 let groundLayer, coinLayer;
 let text;
@@ -38,30 +39,32 @@ function preload() {
 function create() {
     const lvl1 = this.make.tilemap({key: 'lvl1'});
 
+    this.physics.world.bounds.width = lvl1.widthInPixels;
+    this.physics.world.bounds.height = lvl1.heightInPixels;
+
     // Parameters are the name you gave the tileset in Tiled and then the key of the tileset image in
     // Phaser's cache (i.e. the name you used in preload)
     const tileset = lvl1.addTilesetImage('grotto', 'tiles');
 
-    // Parameters: layer name (or index) from Tiled, tileset, x, y
-    const layer = lvl1.createStaticLayer('background', tileset, 0, 0);
+    let bgLayer = lvl1.createStaticLayer('background', tileset, 0, 0);
+
+    // Set up the layer to have matter bodies. Any colliding tiles will be given a Matter body.
+    bgLayer.setCollisionByProperty({ collides: true });
 
     // create the player sprite
-    player = this.physics.add.sprite(16, 16, 'player');
+    player = this.physics.add.sprite(20, 120, 'player');
 
-    player.setBounce(0.2); // our player will bounce from items
+    player.body.setGravityY(300);
+
+    player.setBounce(0.1); // our player will bounce from items
+
     player.setCollideWorldBounds(true); // don't go out of the map
 
-    this.anims.create({
-        key: 'left',
-        frames: this.anims.generateFrameNumbers('player', { start: 0, end: 2 }),
-        frameRate: 10,
-        reverse: true,
-        repeat: -1
-    });
+    this.physics.add.collider(player, bgLayer);
 
     this.anims.create({
         key: 'idle',
-        frames: [ { key: 'player', frame: 3 } ],
+        frames: [ { key: 'player', frame: 5 } ],
         frameRate: 20
     });
 
@@ -72,50 +75,52 @@ function create() {
         repeat: -1
     });
 
+    this.anims.create({
+        key: 'jump',
+        frames: [ {key: 'player', frame: 4} ],
+        frameRate: 20
+    });
+
     // Phaser supports multiple cameras, but you can access the default camera like this:
-    /*const camera = this.cameras.main;
-    camera.setZoom(4);
-    camera.setBounds(0, 0, 512, 160);*/
+    this.cameras.main.setBounds(0, 0, lvl1.widthInPixels, lvl1.heightInPixels);
+    this.cameras.main.setZoom(4);
+    // make the camera follow the player
+    this.cameras.main.startFollow(player);
 
 
 
     // Set up the arrows to control the camera
     cursors = this.input.keyboard.createCursorKeys();
-    /*controls = new Phaser.Cameras.Controls.FixedKeyControl({
-        camera: camera,
-        left: cursors.left,
-        right: cursors.right,
-        up: cursors.up,
-        down: cursors.down,
-        speed: 0.5
-    });*/
+    spacebar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 }
 
 function update(time, delta) {
+
+    console.log(player.body.onFloor());
     // Apply the controls to the camera each update tick of the game
     // controls.update(delta);
 
-    if (cursors.left.isDown)
-    {
-        player.setVelocityX(-160);
-
-        player.anims.play('left', true);
-    }
-    else if (cursors.right.isDown)
-    {
-        player.setVelocityX(160);
-
+    if (cursors.left.isDown) {
+        player.setVelocityX(-100);
         player.anims.play('right', true);
+        player.flipX = true;
     }
-    else
-    {
+    else if (cursors.right.isDown) {
+        player.setVelocityX(100);
+
+        player.anims.play(('right'), true);
+        player.flipX = false;
+    }
+    else {
         player.setVelocityX(0);
 
         player.anims.play('idle');
     }
 
-    if (cursors.up.isDown && player.body.touching.down)
+    if (spacebar.isDown && player.body.onFloor())
     {
-        player.setVelocityY(-330);
+        player.setVelocityY(-200);
+
+        player.anims.play('jump');
     }
 }
